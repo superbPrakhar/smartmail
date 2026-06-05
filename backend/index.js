@@ -10,17 +10,24 @@ const emailRoutes = require('./routes/emails');
 
 const app = express();
 
+// Trust proxy for Render / Heroku (needed for secure cookies behind load balancer)
+app.set('trust proxy', 1);
+
 app.use(cors({
-  origin: true, // Allow any local port to prevent CORS on port 5174
+  origin: true,
   credentials: true
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 app.use(cookieSession({
   maxAge: 24 * 60 * 60 * 1000, 
   keys: [process.env.SESSION_SECRET || 'secret'],
+  secure: isProduction,
+  sameSite: 'lax',
 }));
 
 if (process.env.MONGODB_URI) {
