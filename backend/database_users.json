@@ -1,0 +1,118 @@
+[
+  {
+    "email": "prakhar_persistent@example.com",
+    "passwordHash": "somehashedpwd",
+    "_id": "grh7ub6ijh",
+    "preferences": {
+      "importantKeywords": [],
+      "spamKeywords": []
+    },
+    "isGmailConnected": false
+  },
+  {
+    "email": "prakharanandtrivedi@gmail.com",
+    "passwordHash": "$2b$10$Fe8o0Bxqseg22MsqIEzSQ.QxlwFr3Bexjxblx7Z04W5xK0VRsaVB.",
+    "_id": "2t890vajxa",
+    "preferences": {
+      "importantKeywords": [],
+      "spamKeywords": []
+    },
+    "isGmailConnected": true,
+    "googleId": "111275027946434180888",
+    "accessToken": "ya29.a0AQvPyIN5zzQRiwyfgdtiYAv_zpp_Y0HsbTOL8efG-C3C18EUYkqpoURutxrLYVpdhAlVQ1BWijxAHZounGxwt7VFzfYCUhM6c7PjyMrZ94JXM0zq0jLanfXcDAF_vHPgHcnQvbPyyPKbN0szIsKYh2fAl7IqmhKoXF9kfcvdfn8U7KoWa9E7Eym8hLNFKdpOf5TlFEkaCgYKAZsSARQSFQHGX2MiyvPrl_ui7GPalh3nLbMipQ0206",
+    "refreshToken": "1//0gGg5t0rauAT6CgYIARAAGBASNwF-L9IreTWzU7LI7ruW7Qk3TCA0t1bplU7iyNAew7zAt5IBmn4VEkkVy5wfYR_WfJ9Zh1WEagw"
+  },
+  {
+    "email": "palak161003@gmail.com",
+    "passwordHash": "$2b$10$zheJJfLjFfoOOZeIgLj2GO.ws1uN1Hy4sh9dSbqzq2M3WUs9PKASS",
+    "_id": "mcoxx5s90i",
+    "preferences": {
+      "importantKeywords": [],
+      "spamKeywords": []
+    },
+    "isGmailConnected": false
+  },
+  {
+    "email": "palak.priya2023@vitstudent.vit.ac.in",
+    "passwordHash": "$2b$10$iNMVLzDzvSlo8LOnJhF79Ojw1E/j99vjfZVT3muObfGVR/Von.9B6",
+    "_id": "z2b20ikxnb",
+    "preferences": {
+      "importantKeywords": [],
+      "spamKeywords": []
+    },
+    "isGmailConnected": true,
+    "googleId": "114017683860087894995",
+    "accessToken": "ya29.a0AQvPyIOtqOpjr-aLXj-RAKUqRLHiMBtGqt1FLrkaEgN4zogt_BW_EhRNXUp8G8N36yRUQXaJW37fxjOOxm8MscQUE2RdgFmbhWVvwxAf5LoT8OY66PuKlBj-M34unat7k9hr9LuNYeqOOxLwQImnCKvO2vbXDaaixpgCZff32y9Ie5aPEdfSBR6zkFoo5P4-0iI-VyQaCgYKAQ8SARASFQHGX2MidPUpF0i3OjxqUHpX1IGjTg0206",
+    "refreshToken": "1//0g5FpbO5Wi4ENCgYIARAAGBASNwF-L9Ir1-wkgCNo-ZxRYMulm9ERXOLycuIqQPmEmeCBbGHA7AhQk6HE85bVwvIfE9e7oz3ezeI"
+  },
+  {
+    "email": "fetch_test_1779895722688@example.com",
+    "passwordHash": "$2b$10$vwr59F5syaiZlJXRCwxP1unUTPpsXisujfb11wIhHH2Vg8vBS8TGq",
+    "_id": "1ppa2lddq1",
+    "preferences": {
+      "importantKeywords": [],
+      "spamKeywords": []
+    },
+    "isGmailConnected": true
+  },
+  {
+    "email": "prakhar.anand2023@vitstudent.ac.in",
+    "passwordHash": "$2b$10$acV.WHB0tZC29ejc/g9Fue2imMxp1ZtJYWT3IgGjSPD16vKonDXbm",
+    "_id": "jwnepbbq1h",
+    "preferences": {
+      "importantKeywords": [],
+      "spamKeywords": []
+    },
+    "isGmailConnected": false
+  },
+  {
+    "email": "superprakhar123@gmail.com",
+    "passwordHash": "$2b$10$/XSF/K8V0jtYW2LGzqmbhef/Mpn6eXPkbAdpFi8Qs8ZAFbECKM6Bm",
+    "_id": "y6kicsb578",
+    "preferences": {
+      "importantKeywords": [
+        "internship"
+      ],
+      "spamKeywords": [
+        "sale"
+      ]
+    },
+    "isGmailConnected": true,
+    "googleId": "111275027946434180888",
+    "accessToken": "ya29.a0AQvPyIOXV28p-DzdAqKcvZKDhDfHSPaxGXg5kJgCOnvI3rjCCksP1re1j1yCHlzYvlJBE0fXWM0mwEjJHlOYFLHdX_uBP8HlV5C3nG-IdIfvuzqsPpr3fSp2Eu6_i0Zvni0Dm-yrABLqGDJAJxxwmMFn_yv18OWRmfq6YmXF59RdHY5UTaxRjiWc3u7mEturRy2_9R8aCgYKAegSARQSFQHGX2MipvPTetc1oybq2i4uipLVLQ0206",
+    "refreshToken": "1//0gARchqXyX7isCgYIARAAGBASNwF-L9IrSnMoOY9ptKXbztZTKyXT_XwjtJ8gJfQvHrYXDZs0hCpVgaODfRzR1XsZMa5I6ZGJogM"
+  },
+  {
+    "email": "vansh@gmail.com",
+    "passwordHash": "$2b$10$9XnOtUptZCqOdw/N/fQgc.aJPX3GiAMlze2xaGuZw0PBvKMNUpvPW",
+    "_id": "9ua429pvmz",
+    "preferences": {
+      "importantKeywords": [],
+      "spamKeywords": []
+    },
+    "isGmailConnected": true,
+    "googleId": "100777112108373617272",
+    "accessToken": "ya29.a0AQvPyINqcV21d3nI2XAfG0LsU2bT_WIVZxKdzzC3wm7WuBh_WD3PP0tYt3MY2tmGuSndmTJ377J5hrJwLg8iTSSr4r36_XXgI39LP1V2TrsFNHsJntYsTqU3_zUPEX3Yl9X6w2iU5X-BUlf1XHpIg0wkoxUqn-FUNasc-_m1QmTPS-mfNURzEPHw6SKgTyNQOGbZUcIaCgYKAT0SARASFQHGX2MitQ56ya3Rcs0-5HFASq3YKg0206",
+    "refreshToken": "1//0gPlTtY1BMCq1CgYIARAAGBASNwF-L9IrFHWLkcWboAfvhaEH1G4qIGTx0v2mgxe9u3u8WTaMTYyEWvhvtyAv8YjVXgR_53CBSKg"
+  },
+  {
+    "email": "palak161004@gmail.com",
+    "passwordHash": "$2b$10$/CzBw.NU7h398qZFbbc/D.NVU.k/bILFmgSRM6tdVrb7sCcaM/rsW",
+    "_id": "09jwlpn6et",
+    "preferences": {
+      "importantKeywords": [],
+      "spamKeywords": []
+    },
+    "isGmailConnected": false
+  },
+  {
+    "email": "test_agent_1780688025058@example.com",
+    "passwordHash": "$2b$10$7IYp5/lxk6nZiJ0js.qRoOqIfThArTZFZ9r6okqHzhlg3jXFLJtAq",
+    "_id": "19xdtnjot5",
+    "preferences": {
+      "importantKeywords": [],
+      "spamKeywords": []
+    },
+    "isGmailConnected": false
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "ignore": [
+    "database_users.json",
+    "database_emails.json"
+  ]
+}

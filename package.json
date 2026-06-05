@@ -1,0 +1,12 @@
+{
+  "name": "smartmail",
+  "version": "1.0.0",
+  "description": "SmartMail Web Application",
+  "scripts": {
+    "install": "npm run install:backend && npm run install:frontend",
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start"
+  }
+}
