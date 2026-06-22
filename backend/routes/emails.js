@@ -89,73 +89,66 @@ router.get('/fetch', async (req, res) => {
     
     const resp = await gmail.users.messages.list({
       userId: 'me',
-      maxResults: 100
+      maxResults: 50
     });
     
     if (!resp.data.messages) return res.json({ message: 'No emails found' });
     
-    const fetchedEmails = [];
-    
-    // Process ALL 100 emails in parallel — no AI call, just scoring (instant)
-    const BATCH_SIZE = 20;
     const messages = resp.data.messages;
     
-    for (let i = 0; i < messages.length; i += BATCH_SIZE) {
-      const batch = messages.slice(i, i + BATCH_SIZE);
-      const batchResults = await Promise.all(batch.map(async (msg) => {
-        try {
-          // Check cache first
-          let existingEmail = await Email.findOne({ emailId: msg.id });
-          if (existingEmail) return existingEmail;
-          
-          const messageData = await gmail.users.messages.get({
-            userId: 'me',
-            id: msg.id,
-            format: 'full' 
-          });
-          
-          const headers = messageData.data.payload.headers;
-          const subject = getHeader(headers, 'subject');
-          const sender = getHeader(headers, 'from');
-          const snippet = messageData.data.snippet;
-          
-          let bodyText = getBodyContent(messageData.data.payload);
-          if (!bodyText) bodyText = snippet;
-          
-          bodyText = cleanBody(bodyText);
+    // Process ALL 50 emails strictly in parallel to guarantee 4-10 seconds load time
+    const batchResults = await Promise.all(messages.map(async (msg) => {
+      try {
+        // Check cache first
+        let existingEmail = await Email.findOne({ emailId: msg.id });
+        if (existingEmail) return existingEmail;
+        
+        const messageData = await gmail.users.messages.get({
+          userId: 'me',
+          id: msg.id,
+          format: 'full' 
+        });
+        
+        const headers = messageData.data.payload.headers;
+        const subject = getHeader(headers, 'subject');
+        const sender = getHeader(headers, 'from');
+        const snippet = messageData.data.snippet;
+        
+        let bodyText = getBodyContent(messageData.data.payload);
+        if (!bodyText) bodyText = snippet;
+        
+        bodyText = cleanBody(bodyText);
 
-          // Quick analysis — scoring + categorization only, NO AI API call
-          const analysis = await analyzeEmail(subject, bodyText, sender, user.preferences);
-          
-          const newEmail = new Email({
-            emailId: msg.id,
-            userId: user._id,
-            subject,
-            sender,
-            snippet,
-            body: bodyText,
-            summary: analysis.summary,
-            importanceScore: analysis.importanceScore,
-            category: analysis.category,
-            wittyNotification: analysis.wittyNotification,
-            tone: analysis.tone,
-            readTimeGst: analysis.readTimeGst,
-            timeRoiScore: analysis.timeRoiScore,
-            smartReplies: analysis.smartReplies,
-            timestamp: new Date(parseInt(messageData.data.internalDate))
-          });
-          
-          await newEmail.save();
-          return newEmail;
-        } catch (err) {
-          console.error(`Error processing email ${msg.id}:`, err.message);
-          return null;
-        }
-      }));
-      
-      fetchedEmails.push(...batchResults.filter(e => e !== null));
-    }
+        // Quick analysis — scoring + categorization only, NO AI API call
+        const analysis = await analyzeEmail(subject, bodyText, sender, user.preferences);
+        
+        const newEmail = new Email({
+          emailId: msg.id,
+          userId: user._id,
+          subject,
+          sender,
+          snippet,
+          body: bodyText,
+          summary: analysis.summary,
+          importanceScore: analysis.importanceScore,
+          category: analysis.category,
+          wittyNotification: analysis.wittyNotification,
+          tone: analysis.tone,
+          readTimeGst: analysis.readTimeGst,
+          timeRoiScore: analysis.timeRoiScore,
+          smartReplies: analysis.smartReplies,
+          timestamp: new Date(parseInt(messageData.data.internalDate))
+        });
+        
+        await newEmail.save();
+        return newEmail;
+      } catch (err) {
+        console.error(`Error processing email ${msg.id}:`, err.message);
+        return null;
+      }
+    }));
     
+    const fetchedEmails = batchResults.filter(e => e !== null);
     fetchedEmails.sort((a,b) => b.importanceScore - a.importanceScore || b.timestamp - a.timestamp);
     res.json(fetchedEmails);
 
