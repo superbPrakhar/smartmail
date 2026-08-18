@@ -50,7 +50,11 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error(err);
-      setError('Failed to fetch emails. Are you connected to internet?');
+      if (err.response && err.response.data && err.response.data.error) {
+        setError(`Error: ${err.response.data.error}`);
+      } else {
+        setError(err.message || 'Failed to fetch emails. Are you connected to internet?');
+      }
       if (err.response && err.response.status === 401) {
          window.location.href = '/';
       }

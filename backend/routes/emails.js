@@ -154,7 +154,7 @@ router.get('/fetch', async (req, res) => {
 
   } catch (err) {
     console.error('Fetch emails error', err);
-    res.status(500).json({ error: 'Failed to fetch emails' });
+    res.status(500).json({ error: err.message || 'Failed to fetch emails' });
   }
 });
 
