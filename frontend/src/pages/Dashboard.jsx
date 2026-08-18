@@ -51,6 +51,11 @@ export default function Dashboard() {
     } catch (err) {
       console.error(err);
       if (err.response && err.response.data && err.response.data.error) {
+        if (err.response.data.error.includes('invalid_grant')) {
+          // Token expired, force re-auth
+          window.location.href = '/auth/google/connect';
+          return;
+        }
         setError(`Error: ${err.response.data.error}`);
       } else {
         setError(err.message || 'Failed to fetch emails. Are you connected to internet?');
