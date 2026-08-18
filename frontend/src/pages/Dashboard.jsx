@@ -41,10 +41,14 @@ export default function Dashboard() {
         if ('Notification' in window && Notification.permission === 'granted') {
           const urgentEmail = res.data.find(e => e.wittyNotification);
           if (urgentEmail) {
-             new Notification('SmartMail AI 💌', {
-               body: urgentEmail.wittyNotification,
-               icon: 'https://cdn-icons-png.flaticon.com/512/732/732200.png'
-             });
+             try {
+               new Notification('SmartMail AI 💌', {
+                 body: urgentEmail.wittyNotification,
+                 icon: 'https://cdn-icons-png.flaticon.com/512/732/732200.png'
+               });
+             } catch (notifErr) {
+               console.warn('Browser does not support standard Notification constructor:', notifErr);
+             }
           }
         }
       }
