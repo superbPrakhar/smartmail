@@ -1,30 +1,18 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "cd frontend && npm install --include=dev && npm run build",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
     {
-      "src": "backend/index.js",
-      "use": "@vercel/node"
+      "source": "/auth/(.*)",
+      "destination": "/api/index.js"
     },
     {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/auth/(.*)",
-      "dest": "backend/index.js"
+      "source": "/emails/(.*)",
+      "destination": "/api/index.js"
     },
     {
-      "src": "/emails/(.*)",
-      "dest": "backend/index.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
