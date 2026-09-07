@@ -19,8 +19,8 @@
     },
     "isGmailConnected": true,
     "googleId": "111275027946434180888",
-    "accessToken": "ya29.a0AQvPyIN5zzQRiwyfgdtiYAv_zpp_Y0HsbTOL8efG-C3C18EUYkqpoURutxrLYVpdhAlVQ1BWijxAHZounGxwt7VFzfYCUhM6c7PjyMrZ94JXM0zq0jLanfXcDAF_vHPgHcnQvbPyyPKbN0szIsKYh2fAl7IqmhKoXF9kfcvdfn8U7KoWa9E7Eym8hLNFKdpOf5TlFEkaCgYKAZsSARQSFQHGX2MiyvPrl_ui7GPalh3nLbMipQ0206",
-    "refreshToken": "1//0gGg5t0rauAT6CgYIARAAGBASNwF-L9IreTWzU7LI7ruW7Qk3TCA0t1bplU7iyNAew7zAt5IBmn4VEkkVy5wfYR_WfJ9Zh1WEagw"
+    "accessToken": "dummy_access_token",
+    "refreshToken": "dummy_refresh_token"
   },
   {
     "email": "palak161003@gmail.com",
@@ -42,8 +42,8 @@
     },
     "isGmailConnected": true,
     "googleId": "114017683860087894995",
-    "accessToken": "ya29.a0AQvPyIOtqOpjr-aLXj-RAKUqRLHiMBtGqt1FLrkaEgN4zogt_BW_EhRNXUp8G8N36yRUQXaJW37fxjOOxm8MscQUE2RdgFmbhWVvwxAf5LoT8OY66PuKlBj-M34unat7k9hr9LuNYeqOOxLwQImnCKvO2vbXDaaixpgCZff32y9Ie5aPEdfSBR6zkFoo5P4-0iI-VyQaCgYKAQ8SARASFQHGX2MidPUpF0i3OjxqUHpX1IGjTg0206",
-    "refreshToken": "1//0g5FpbO5Wi4ENCgYIARAAGBASNwF-L9Ir1-wkgCNo-ZxRYMulm9ERXOLycuIqQPmEmeCBbGHA7AhQk6HE85bVwvIfE9e7oz3ezeI"
+    "accessToken": "dummy_access_token",
+    "refreshToken": "dummy_refresh_token"
   },
   {
     "email": "fetch_test_1779895722688@example.com",
@@ -79,8 +79,8 @@
     },
     "isGmailConnected": true,
     "googleId": "111275027946434180888",
-    "accessToken": "ya29.a0AQvPyIOXV28p-DzdAqKcvZKDhDfHSPaxGXg5kJgCOnvI3rjCCksP1re1j1yCHlzYvlJBE0fXWM0mwEjJHlOYFLHdX_uBP8HlV5C3nG-IdIfvuzqsPpr3fSp2Eu6_i0Zvni0Dm-yrABLqGDJAJxxwmMFn_yv18OWRmfq6YmXF59RdHY5UTaxRjiWc3u7mEturRy2_9R8aCgYKAegSARQSFQHGX2MipvPTetc1oybq2i4uipLVLQ0206",
-    "refreshToken": "1//0gARchqXyX7isCgYIARAAGBASNwF-L9IrSnMoOY9ptKXbztZTKyXT_XwjtJ8gJfQvHrYXDZs0hCpVgaODfRzR1XsZMa5I6ZGJogM"
+    "accessToken": "dummy_access_token",
+    "refreshToken": "dummy_refresh_token"
   },
   {
     "email": "vansh@gmail.com",
@@ -92,8 +92,8 @@
     },
     "isGmailConnected": true,
     "googleId": "100777112108373617272",
-    "accessToken": "ya29.a0AQvPyINqcV21d3nI2XAfG0LsU2bT_WIVZxKdzzC3wm7WuBh_WD3PP0tYt3MY2tmGuSndmTJ377J5hrJwLg8iTSSr4r36_XXgI39LP1V2TrsFNHsJntYsTqU3_zUPEX3Yl9X6w2iU5X-BUlf1XHpIg0wkoxUqn-FUNasc-_m1QmTPS-mfNURzEPHw6SKgTyNQOGbZUcIaCgYKAT0SARASFQHGX2MitQ56ya3Rcs0-5HFASq3YKg0206",
-    "refreshToken": "1//0gPlTtY1BMCq1CgYIARAAGBASNwF-L9IrFHWLkcWboAfvhaEH1G4qIGTx0v2mgxe9u3u8WTaMTYyEWvhvtyAv8YjVXgR_53CBSKg"
+    "accessToken": "dummy_access_token",
+    "refreshToken": "dummy_refresh_token"
   },
   {
     "email": "palak161004@gmail.com",

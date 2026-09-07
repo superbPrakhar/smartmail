@@ -193,10 +193,10 @@ router.post('/summarize', async (req, res) => {
         metadata: result.metadata
       });
     } else {
-      // Ollama unavailable — return graceful error
+      // Gemini unavailable — return graceful error
       res.json({
         summary: {
-          summary: 'Local AI summary unavailable. Please ensure Ollama is running.',
+          summary: 'Gemini AI summary unavailable. Please ensure GEMINI_API_KEY is configured in backend/.env.',
           action_required: false,
           deadline: null,
           important_points: []
@@ -212,16 +212,16 @@ router.post('/summarize', async (req, res) => {
 });
 
 // ============================================
-// AI STATUS — Check if local Ollama is available
+// AI STATUS — Check if Gemini API key is configured
 // ============================================
-const localLLMService = require('../services/localLLMService');
+const geminiLLMService = require('../services/geminiLLMService');
 
 router.get('/ai/status', async (req, res) => {
   try {
-    const status = await localLLMService.getStatus();
+    const status = await geminiLLMService.getStatus();
     res.json(status);
   } catch (err) {
-    res.json({ available: false, provider: 'ollama', model: process.env.OLLAMA_MODEL || 'qwen3:1.7b' });
+    res.json({ available: false, provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-1.5-flash' });
   }
 });
 

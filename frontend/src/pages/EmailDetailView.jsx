@@ -213,10 +213,10 @@ export default function EmailDetailView() {
                 </div>
                 <h3 className="text-lg font-extrabold text-slate-800 tracking-tight">AI-Powered Email Breakdown</h3>
               </div>
-              {/* Local AI Privacy Badge */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-bold text-emerald-700">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                🔒 Local AI Processing
+              {/* Gemini AI Badge */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-full text-xs font-bold text-indigo-700">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                ✨ Gemini AI Processing
               </div>
             </div>
 

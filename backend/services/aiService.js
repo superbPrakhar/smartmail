@@ -1,5 +1,5 @@
 const natural = require('natural');
-const localLLMService = require('./localLLMService');
+const geminiLLMService = require('./geminiLLMService');
 
 // Initialize NLP Tooling
 const classifier = new natural.BayesClassifier();
@@ -87,7 +87,7 @@ const analyzeEmail = async (subject, body, sender, preferences) => {
 // PHASE 2: On-demand AI summary (called when user clicks an email)
 // ============================================
 const generateAISummary = async (subject, body, sender) => {
-  const result = await localLLMService.analyzeEmail({ subject, sender, body });
+  const result = await geminiLLMService.analyzeEmail({ subject, sender, body });
   
   if (result.success) {
     // Return structured JSON directly, along with metadata
@@ -101,13 +101,13 @@ const generateAISummary = async (subject, body, sender) => {
     };
   }
 
-  // Handle failure gracefully (e.g. Ollama offline)
+  // Handle failure gracefully (e.g. invalid API key)
   return {
     success: false,
-    error: result.error || 'Local AI service unavailable.',
+    error: result.error || 'Gemini AI service unavailable.',
     metadata: {
-      aiProvider: 'ollama',
-      aiModel: process.env.OLLAMA_MODEL || 'qwen3:1.7b'
+      aiProvider: 'gemini',
+      aiModel: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
     }
   };
 };
