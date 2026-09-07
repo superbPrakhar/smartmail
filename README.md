@@ -73,6 +73,24 @@ Open `http://localhost:5173` and sign in with your Google account.
 
 ---
 
+## 💻 Native Desktop Application (Electron)
+
+SmartMail can also run as a native desktop application:
+
+### Run Desktop App in Development Mode:
+```bash
+npm run electron:dev
+```
+*Launches Electron window connecting automatically to backend & frontend.*
+
+### Package Desktop App into Windows Executable (.exe):
+```bash
+npm run electron:build
+```
+*Generates standalone installer in `dist-electron/`.*
+
+---
+
 ## Technology Stack
 
 | Layer | Technology |

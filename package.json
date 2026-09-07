@@ -1,12 +1,36 @@
 {
   "name": "smartmail",
   "version": "1.0.0",
-  "description": "SmartMail Web Application",
+  "description": "SmartMail AI Desktop Application",
+  "main": "electron/main.js",
   "scripts": {
-    "install": "npm run install:backend && npm run install:frontend",
+    "install:all": "npm run install:backend && npm run install:frontend",
     "install:backend": "cd backend && npm install",
     "install:frontend": "cd frontend && npm install --include=dev",
-    "build": "cd frontend && npm run build",
-    "start": "cd backend && npm start"
+    "build:frontend": "cd frontend && npm run build",
+    "start": "cd backend && npm start",
+    "electron:dev": "concurrently \"cd backend && npm start\" \"cd frontend && npm run dev\" \"wait-on http://localhost:5173 && wait-on http://localhost:5000 && electron .\"",
+    "electron:build": "npm run build:frontend && electron-builder"
+  },
+  "build": {
+    "appId": "com.smartmail.app",
+    "productName": "SmartMail Desktop",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "backend/**/*",
+      "frontend/dist/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
+    "wait-on": "^9.1.0"
   }
 }
