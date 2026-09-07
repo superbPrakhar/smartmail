@@ -8,7 +8,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 class GeminiLLMProvider {
   constructor() {
-    this.modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   }
 
   getApiKey() {
