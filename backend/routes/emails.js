@@ -414,4 +414,96 @@ async function generateMockEmails(res, userId) {
   res.json(mockData);
 }
 
+// ============================================
+// SEND EMAIL REPLY ROUTE
+// ============================================
+router.post('/send-reply', async (req, res) => {
+  try {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const user = await User.findById(req.session.userId);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { emailId, to, subject, replyText, threadId } = req.body;
+
+    if (!to || !replyText) {
+      return res.status(400).json({ error: 'Recipient email ("to") and reply text are required.' });
+    }
+
+    // Extract raw email address if formatted like "Sender Name <email@example.com>"
+    let recipientEmail = to;
+    const match = to.match(/<([^>]+)>/);
+    if (match) {
+      recipientEmail = match[1];
+    }
+
+    // Handle mock user or missing access token
+    if (user.email === 'mockuser@smartmail.local' || !user.accessToken || !process.env.GOOGLE_CLIENT_ID) {
+      console.log(`[Mock Reply Sent] To: ${recipientEmail} | Message: "${replyText}"`);
+      return res.json({
+        success: true,
+        mock: true,
+        recipient: recipientEmail,
+        message: `Mock reply sent successfully to ${recipientEmail}!`
+      });
+    }
+
+    // Initialize Google OAuth2 Client
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
+    oauth2Client.setCredentials({ access_token: user.accessToken, refresh_token: user.refreshToken });
+
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+    // Format RFC 2822 Email Message
+    const formattedSubject = subject ? (subject.toLowerCase().startsWith('re:') ? subject : `Re: ${subject}`) : 'Re: Email';
+    const emailLines = [
+      `To: ${recipientEmail}`,
+      `Subject: ${formattedSubject}`,
+      'Content-Type: text/plain; charset=utf-8',
+      'MIME-Version: 1.0',
+      '',
+      replyText
+    ];
+
+    const rawMessage = Buffer.from(emailLines.join('\r\n'))
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const requestBody = { raw: rawMessage };
+    if (threadId) {
+      requestBody.threadId = threadId;
+    }
+
+    const sendRes = await gmail.users.messages.send({
+      userId: 'me',
+      requestBody
+    });
+
+    console.log(`[Gmail Reply Sent] Message ID: ${sendRes.data.id} to ${recipientEmail}`);
+
+    res.json({
+      success: true,
+      messageId: sendRes.data.id,
+      recipient: recipientEmail,
+      message: `Email reply sent successfully to ${recipientEmail}!`
+    });
+  } catch (error) {
+    console.error('Error sending reply via Gmail:', error);
+
+    // If scope missing or invalid token
+    if (error.code === 403 || (error.message && (error.message.includes('insufficient') || error.message.includes('permission')))) {
+      return res.status(403).json({
+        error: 'Gmail permission missing. Please reconnect your Gmail account to grant send permission.',
+        reconnectNeeded: true
+      });
+    }
+
+    res.status(500).json({ error: error.message || 'Failed to send email reply' });
+  }
+});
+
 module.exports = router;

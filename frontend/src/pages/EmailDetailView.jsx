@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Star, Calendar, User, AlignLeft, Sparkles, Zap, ArrowLeft, Target, ClipboardList, CheckCircle2, Clock, BoltIcon, Loader2, ShieldCheck } from 'lucide-react';
+import { Star, Calendar, User, AlignLeft, Sparkles, Zap, ArrowLeft, Target, ClipboardList, CheckCircle2, Clock, BoltIcon, Loader2, ShieldCheck, Send, AlertCircle } from 'lucide-react';
 
 axios.defaults.withCredentials = true;
 
@@ -12,6 +12,12 @@ export default function EmailDetailView() {
   const [metadata, setMetadata] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [aiError, setAiError] = useState(null);
+
+  // Reply state
+  const [sendingReplyIdx, setSendingReplyIdx] = useState(null);
+  const [customReply, setCustomReply] = useState('');
+  const [sendingCustom, setSendingCustom] = useState(false);
+  const [replyStatus, setReplyStatus] = useState(null);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('currentViewEmail');
@@ -72,6 +78,41 @@ export default function EmailDetailView() {
       });
     } finally {
       setLoadingSummary(false);
+    }
+  };
+
+  const handleSendReply = async (replyText, idx = null) => {
+    if (!replyText || !replyText.trim()) return;
+    try {
+      if (idx !== null) setSendingReplyIdx(idx);
+      else setSendingCustom(true);
+      setReplyStatus(null);
+
+      const res = await axios.post('/emails/send-reply', {
+        emailId: email.emailId || email._id,
+        to: email.sender,
+        subject: email.subject,
+        replyText: replyText.trim(),
+        threadId: email.threadId
+      });
+
+      setReplyStatus({
+        success: true,
+        message: res.data.message || `Email reply sent to ${email.sender}!`
+      });
+      if (idx === null) setCustomReply('');
+    } catch (err) {
+      console.error('Send reply error:', err);
+      const errMsg = err.response?.data?.error || 'Failed to send email reply. Please try again.';
+      const reconnectNeeded = err.response?.data?.reconnectNeeded;
+      setReplyStatus({
+        success: false,
+        message: errMsg,
+        reconnectNeeded
+      });
+    } finally {
+      setSendingReplyIdx(null);
+      setSendingCustom(false);
     }
   };
 
@@ -247,26 +288,95 @@ export default function EmailDetailView() {
               </div>
             </div>
             
-            {/* AI Smart Replies */}
-            {email.smartReplies && email.smartReplies.length > 0 && (
-              <div className="border-t border-slate-100 pt-8 mt-6">
-                <h4 className="text-sm font-black uppercase tracking-widest text-violet-500 mb-4 flex items-center gap-2">
-                  <Zap className="w-5 h-5" /> AI One-Click Replies
-                </h4>
-                <div className="flex gap-3 flex-wrap">
-                  {email.smartReplies.map((reply, idx) => (
-                    <button 
-                      key={idx}
-                      onClick={() => alert('Demo: Reply sent — "' + reply + '"')}
-                      className="px-5 py-2.5 bg-white border-2 border-violet-100 text-violet-700 font-bold rounded-xl hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm active:scale-95 text-sm"
+            {/* Reply Status Notification */}
+            {replyStatus && (
+              <div className={`mb-6 p-4 rounded-2xl border flex items-start gap-3 ${
+                replyStatus.success 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}>
+                {replyStatus.success ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1 text-sm font-semibold">
+                  <p>{replyStatus.message}</p>
+                  {replyStatus.reconnectNeeded && (
+                    <a 
+                      href="/auth/google/connect" 
+                      className="inline-block mt-2 px-4 py-1.5 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-700 transition-all text-xs"
                     >
-                      {reply}
-                    </button>
-                  ))}
+                      Reconnect Gmail Account
+                    </a>
+                  )}
                 </div>
               </div>
             )}
-            
+
+            {/* Reply Section (AI Quick Replies + Custom Reply Box) */}
+            <div className="border-t border-slate-100 pt-8 mt-6">
+              <h4 className="text-sm font-black uppercase tracking-widest text-violet-500 mb-4 flex items-center gap-2">
+                <Zap className="w-5 h-5" /> AI One-Click Replies
+              </h4>
+              
+              {/* One-Click Buttons */}
+              {email.smartReplies && email.smartReplies.length > 0 && (
+                <div className="flex gap-3 flex-wrap mb-6">
+                  {email.smartReplies.map((reply, idx) => (
+                    <button 
+                      key={idx}
+                      disabled={sendingReplyIdx !== null || sendingCustom}
+                      onClick={() => handleSendReply(reply, idx)}
+                      className="px-5 py-2.5 bg-white border-2 border-violet-100 text-violet-700 font-bold rounded-xl hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm active:scale-95 text-sm flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {sendingReplyIdx === idx ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-violet-600" />
+                          Sending...
+                        </>
+                      ) : (
+                        reply
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Custom Reply Textarea */}
+              <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80">
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-500 mb-2">
+                  Write Custom Reply to {email.sender}
+                </label>
+                <textarea
+                  rows={3}
+                  value={customReply}
+                  onChange={(e) => setCustomReply(e.target.value)}
+                  placeholder="Type your response here..."
+                  className="w-full p-4 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 transition-all mb-3 resize-none font-sans"
+                />
+                <div className="flex justify-end">
+                  <button
+                    disabled={!customReply.trim() || sendingCustom || sendingReplyIdx !== null}
+                    onClick={() => handleSendReply(customReply)}
+                    className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-xl transition-all shadow-md shadow-violet-500/20 active:scale-95 flex items-center gap-2 text-sm disabled:opacity-50"
+                  >
+                    {sendingCustom ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sending Reply...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Send Reply
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
