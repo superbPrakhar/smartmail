@@ -42,16 +42,17 @@ class GeminiLLMProvider {
       };
     }
 
-    try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: this.modelName,
-        generationConfig: {
-          responseMimeType: 'application/json'
-        }
-      });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const candidateModels = [
+      process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-2.5-flash',
+      'gemini-1.5-pro',
+      'gemini-pro'
+    ];
+    const modelsToTry = [...new Set(candidateModels.filter(Boolean))];
 
-      const prompt = `You are SmartMail AI, an executive assistant reading an incoming email.
+    const prompt = `You are SmartMail AI, an executive assistant reading an incoming email.
 Analyze the email provided below and extract key information.
 
 Respond STRICTLY with valid JSON using this exact schema:
@@ -74,48 +75,73 @@ Body:
 ${body || 'No Body Content'}
 --- END EMAIL ---`;
 
-      const result = await model.generateContent(prompt);
-      const rawText = result.response.text();
+    let lastError = null;
 
-      // Clean rawText in case model wraps in ```json
-      let cleanedJson = rawText.trim();
-      if (cleanedJson.startsWith('```')) {
-        cleanedJson = cleanedJson.replace(/^```(json)?\s*/i, '').replace(/\s*```$/, '').trim();
-      }
-
-      let parsed;
+    for (const modelName of modelsToTry) {
       try {
-        parsed = JSON.parse(cleanedJson);
-      } catch (parseErr) {
-        console.warn('Gemini raw text parse fallback:', parseErr.message);
-        parsed = {
-          summary: rawText.substring(0, 300),
-          action_required: false,
-          deadline: null,
-          important_points: []
-        };
-      }
+        console.log(`[Gemini LLM] Trying model: ${modelName}...`);
+        
+        let model;
+        try {
+          model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+              responseMimeType: 'application/json'
+            }
+          });
+        } catch {
+          // Fallback if responseMimeType is not supported on this model
+          model = genAI.getGenerativeModel({ model: modelName });
+        }
 
-      return {
-        success: true,
-        data: {
-          summary: parsed.summary || 'Summary unavailable.',
-          action_required: Boolean(parsed.action_required),
-          deadline: parsed.deadline || null,
-          important_points: Array.isArray(parsed.important_points) ? parsed.important_points : []
-        },
-        provider: 'gemini',
-        model: this.modelName
-      };
-    } catch (error) {
-      console.error('Gemini API Error:', error.message || error);
-      return {
-        success: false,
-        error: error.message || 'Gemini API call failed.',
-        provider: 'gemini',
-        model: this.modelName
-      };
+        const result = await model.generateContent(prompt);
+        const rawText = result.response.text();
+
+        // Clean rawText in case model wraps in ```json
+        let cleanedJson = rawText.trim();
+        if (cleanedJson.startsWith('```')) {
+          cleanedJson = cleanedJson.replace(/^```(json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(cleanedJson);
+        } catch (parseErr) {
+          console.warn(`[Gemini LLM] Raw text parse fallback for ${modelName}:`, parseErr.message);
+          parsed = {
+            summary: rawText.substring(0, 300),
+            action_required: false,
+            deadline: null,
+            important_points: []
+          };
+        }
+
+        console.log(`[Gemini LLM] Successfully generated summary using ${modelName}`);
+
+        return {
+          success: true,
+          data: {
+            summary: parsed.summary || 'Summary unavailable.',
+            action_required: Boolean(parsed.action_required),
+            deadline: parsed.deadline || null,
+            important_points: Array.isArray(parsed.important_points) ? parsed.important_points : []
+          },
+          provider: 'gemini',
+          model: modelName
+        };
+      } catch (err) {
+        console.warn(`[Gemini LLM] Model ${modelName} failed (${err.message}). Trying next candidate...`);
+        lastError = err;
+      }
     }
+
+    // All models failed
+    return {
+      success: false,
+      error: lastError?.message || 'All Gemini API models failed.',
+      provider: 'gemini',
+      model: modelsToTry[0]
+    };
   }
 }
 
