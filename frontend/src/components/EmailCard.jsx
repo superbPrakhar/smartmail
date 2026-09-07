@@ -1,7 +1,9 @@
 import React from 'react';
 import { Star, Mail, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function EmailCard({ email, onClick }) {
+  const navigate = useNavigate();
   let borderLeftColor = 'border-[rgba(203,213,225,0.5)]'; // default tailwind slate-300
   let badgeColor = 'bg-slate-100 text-slate-600';
   
@@ -31,7 +33,7 @@ export default function EmailCard({ email, onClick }) {
     <div 
       onClick={() => {
         localStorage.setItem('currentViewEmail', JSON.stringify(email));
-        window.location.href = '/email-detail';
+        navigate('/email-detail');
       }}
       className={`p-6 rounded-2xl cursor-pointer glass-card border-l-[6px] ${borderLeftColor}`}
     >

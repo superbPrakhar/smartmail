@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { Star, Calendar, User, AlignLeft, Sparkles, Zap, ArrowLeft, Target, ClipboardList, CheckCircle2, Clock, BoltIcon, Loader2, ShieldCheck } from 'lucide-react';
 
 axios.defaults.withCredentials = true;
 
 export default function EmailDetailView() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState(null);
   const [summary, setSummary] = useState(null);
   const [metadata, setMetadata] = useState(null);
@@ -127,7 +129,7 @@ export default function EmailDetailView() {
         {/* Back Button */}
         <div className="mb-6">
           <button 
-            onClick={() => window.location.href = '/dashboard'} 
+            onClick={() => navigate('/dashboard')} 
             className="flex items-center text-slate-500 hover:text-blue-600 font-bold transition-all duration-300 bg-white/80 backdrop-blur-sm px-5 py-2.5 rounded-full shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-200"
           >
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Inbox
