@@ -20,7 +20,14 @@ if (process.env.MONGODB_URI) {
     readTimeGst: Number,
     timeRoiScore: Number,
     smartReplies: { type: [String], default: [] },
-    timestamp: Date
+    timestamp: Date,
+    // AI metadata fields for local LLM tracking
+    aiProvider: { type: String, default: 'ollama' },
+    aiModel: { type: String, default: 'qwen3:1.7b' },
+    actionRequired: Boolean,
+    deadline: String,
+    importantPoints: { type: [String], default: [] },
+    summaryGeneratedAt: Date
   }, { timestamps: true });
 
   EmailModel = mongoose.model('Email', emailSchema);

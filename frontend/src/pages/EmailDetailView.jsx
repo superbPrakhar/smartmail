@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Star, Calendar, User, AlignLeft, Sparkles, Zap, ArrowLeft, Target, ClipboardList, CheckCircle2, Clock, BoltIcon, Loader2 } from 'lucide-react';
+import { Star, Calendar, User, AlignLeft, Sparkles, Zap, ArrowLeft, Target, ClipboardList, CheckCircle2, Clock, BoltIcon, Loader2, ShieldCheck } from 'lucide-react';
 
 axios.defaults.withCredentials = true;
 
 export default function EmailDetailView() {
   const [email, setEmail] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [metadata, setMetadata] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
+  const [aiError, setAiError] = useState(null);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('currentViewEmail');
@@ -17,7 +19,19 @@ export default function EmailDetailView() {
       
       // If summary already exists (cached), use it
       if (parsed.summary && parsed.summary.length > 10) {
-        setSummary(parsed.summary);
+        // Try parsing as JSON first (new structured format)
+        try {
+          const structuredSummary = JSON.parse(parsed.summary);
+          setSummary(structuredSummary);
+        } catch {
+          // Legacy string summary — wrap it in the new structure
+          setSummary({
+            summary: parsed.summary,
+            action_required: false,
+            deadline: null,
+            important_points: []
+          });
+        }
         setLoadingSummary(false);
       } else {
         // Call AI on-demand for this single email
@@ -29,16 +43,31 @@ export default function EmailDetailView() {
   const fetchAISummary = async (emailData) => {
     try {
       setLoadingSummary(true);
+      setAiError(null);
       const res = await axios.post('/emails/summarize', {
         emailId: emailData.emailId,
         subject: emailData.subject,
         body: emailData.body,
         sender: emailData.sender
       });
+      
+      // New structured response: res.data.summary is a JSON object
       setSummary(res.data.summary);
+      if (res.data.metadata) {
+        setMetadata(res.data.metadata);
+      }
+      if (res.data.error) {
+        setAiError(res.data.error);
+      }
     } catch (err) {
       console.error('AI Summary error:', err);
-      setSummary(`🎯 WHAT'S THIS ABOUT?\nCould not generate AI summary at this time. Please read the original content below.\n\n📋 KEY POINTS\n• The AI service is temporarily unavailable.\n\n✅ WHAT YOU NEED TO DO\n• Read the full email content below.\n\n⏰ DEADLINES\n• Check the original content.\n\n⚡ BOTTOM LINE\nPlease review the email manually.`);
+      setAiError('Could not connect to the AI service.');
+      setSummary({
+        summary: 'Could not generate AI summary at this time. Please read the original content below.',
+        action_required: false,
+        deadline: null,
+        important_points: []
+      });
     } finally {
       setLoadingSummary(false);
     }
@@ -51,39 +80,6 @@ export default function EmailDetailView() {
       </div>
     );
   }
-
-  // Parse the structured summary into sections
-  const parseSummary = (rawSummary) => {
-    if (!rawSummary) return null;
-    
-    const sections = {
-      about: '',
-      keyPoints: '',
-      actions: '',
-      deadlines: '',
-      bottomLine: ''
-    };
-
-    const aboutMatch = rawSummary.match(/🎯\s*WHAT'S THIS ABOUT\??\s*\n([\s\S]*?)(?=📋|$)/);
-    const keyMatch = rawSummary.match(/📋\s*KEY POINTS\s*\n([\s\S]*?)(?=✅|$)/);
-    const actionMatch = rawSummary.match(/✅\s*WHAT YOU NEED TO DO\s*\n([\s\S]*?)(?=⏰|$)/);
-    const deadlineMatch = rawSummary.match(/⏰\s*DEADLINES?\s*\n([\s\S]*?)(?=⚡|$)/);
-    const bottomMatch = rawSummary.match(/⚡\s*BOTTOM LINE\s*\n([\s\S]*?)$/);
-
-    sections.about = aboutMatch ? aboutMatch[1].trim() : '';
-    sections.keyPoints = keyMatch ? keyMatch[1].trim() : '';
-    sections.actions = actionMatch ? actionMatch[1].trim() : '';
-    sections.deadlines = deadlineMatch ? deadlineMatch[1].trim() : '';
-    sections.bottomLine = bottomMatch ? bottomMatch[1].trim() : '';
-
-    if (!sections.about && !sections.keyPoints && !sections.actions) {
-      sections.about = rawSummary;
-    }
-
-    return sections;
-  };
-
-  const sections = parseSummary(summary);
 
   const SummaryCard = ({ icon: Icon, title, content, gradient, iconColor }) => {
     if (!content) return null;
@@ -103,6 +99,26 @@ export default function EmailDetailView() {
       </div>
     );
   };
+
+  // Build display content from structured summary
+  const summaryText = summary?.summary || '';
+  const actionRequired = summary?.action_required;
+  const deadline = summary?.deadline;
+  const importantPoints = summary?.important_points || [];
+
+  const keyPointsContent = importantPoints.length > 0
+    ? importantPoints.map(p => `• ${p}`).join('\n')
+    : null;
+
+  const actionContent = actionRequired === true
+    ? '• Yes — action is required. Check the details above.'
+    : actionRequired === false
+      ? '• No action needed — this is just informational.'
+      : null;
+
+  const deadlineContent = deadline
+    ? `• ${deadline}`
+    : '• No specific deadlines mentioned.';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 p-4 sm:p-8 font-sans">
@@ -147,12 +163,26 @@ export default function EmailDetailView() {
           <div className="p-8 sm:p-10">
             
             {/* AI Summary Header */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
-                <Sparkles className="w-4 h-4 text-white" />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-lg font-extrabold text-slate-800 tracking-tight">AI-Powered Email Breakdown</h3>
               </div>
-              <h3 className="text-lg font-extrabold text-slate-800 tracking-tight">AI-Powered Email Breakdown</h3>
+              {/* Local AI Privacy Badge */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-bold text-emerald-700">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                🔒 Local AI Processing
+              </div>
             </div>
+
+            {/* AI Error Banner */}
+            {aiError && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm font-medium">
+                ⚠️ {aiError}
+              </div>
+            )}
 
             {/* Loading State */}
             {loadingSummary ? (
@@ -161,7 +191,7 @@ export default function EmailDetailView() {
                   <Loader2 className="w-6 h-6 text-white animate-spin" />
                 </div>
                 <p className="text-indigo-700 font-bold text-lg">AI is reading your email...</p>
-                <p className="text-slate-500 font-medium text-sm">Generating a friendly summary just for you</p>
+                <p className="text-slate-500 font-medium text-sm">Generating a local AI summary just for you</p>
               </div>
             ) : (
               /* Summary Cards Grid */
@@ -169,38 +199,39 @@ export default function EmailDetailView() {
                 <SummaryCard 
                   icon={Target}
                   title="What's This About?"
-                  content={sections?.about}
+                  content={summaryText}
                   gradient="bg-gradient-to-br from-blue-400 to-cyan-500"
                   iconColor="bg-gradient-to-br from-blue-500 to-cyan-600"
                 />
                 <SummaryCard 
                   icon={ClipboardList}
                   title="Key Points"
-                  content={sections?.keyPoints}
+                  content={keyPointsContent}
                   gradient="bg-gradient-to-br from-indigo-400 to-purple-500"
                   iconColor="bg-gradient-to-br from-indigo-500 to-purple-600"
                 />
                 <SummaryCard 
                   icon={CheckCircle2}
-                  title="What You Need To Do"
-                  content={sections?.actions}
+                  title="Action Required"
+                  content={actionContent}
                   gradient="bg-gradient-to-br from-emerald-400 to-teal-500"
                   iconColor="bg-gradient-to-br from-emerald-500 to-teal-600"
                 />
                 <SummaryCard 
                   icon={Clock}
                   title="Deadlines"
-                  content={sections?.deadlines}
+                  content={deadlineContent}
                   gradient="bg-gradient-to-br from-orange-400 to-red-500"
                   iconColor="bg-gradient-to-br from-orange-500 to-red-600"
                 />
-                <SummaryCard 
-                  icon={BoltIcon}
-                  title="Bottom Line"
-                  content={sections?.bottomLine}
-                  gradient="bg-gradient-to-br from-violet-400 to-fuchsia-500"
-                  iconColor="bg-gradient-to-br from-violet-500 to-fuchsia-600"
-                />
+              </div>
+            )}
+
+            {/* AI Provider Info */}
+            {metadata && (
+              <div className="mb-6 flex items-center gap-2 text-xs text-slate-400 font-medium">
+                <Sparkles className="w-3 h-3" />
+                <span>Summary by {metadata.aiProvider} • {metadata.aiModel}</span>
               </div>
             )}
 

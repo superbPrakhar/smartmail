@@ -172,17 +172,56 @@ router.post('/summarize', async (req, res) => {
     }
     
     // Generate AI summary on-demand
-    const summary = await generateAISummary(subject, body, sender);
+    const result = await generateAISummary(subject, body, sender);
     
-    // Cache it so we don't call AI again for the same email
-    if (emailId) {
-      await Email.findOneAndUpdate({ emailId }, { summary });
+    if (result.success) {
+      // Cache the structured summary in MongoDB
+      if (emailId) {
+        await Email.findOneAndUpdate({ emailId }, {
+          summary: JSON.stringify(result.data),
+          aiProvider: result.metadata.aiProvider,
+          aiModel: result.metadata.aiModel,
+          actionRequired: result.data.action_required,
+          deadline: result.data.deadline,
+          importantPoints: result.data.important_points,
+          summaryGeneratedAt: new Date()
+        });
+      }
+      
+      res.json({
+        summary: result.data,
+        metadata: result.metadata
+      });
+    } else {
+      // Ollama unavailable — return graceful error
+      res.json({
+        summary: {
+          summary: 'Local AI summary unavailable. Please ensure Ollama is running.',
+          action_required: false,
+          deadline: null,
+          important_points: []
+        },
+        metadata: result.metadata,
+        error: result.error
+      });
     }
-    
-    res.json({ summary });
   } catch (err) {
     console.error('Summarize error:', err);
     res.status(500).json({ error: 'Failed to generate summary' });
+  }
+});
+
+// ============================================
+// AI STATUS — Check if local Ollama is available
+// ============================================
+const localLLMService = require('../services/localLLMService');
+
+router.get('/ai/status', async (req, res) => {
+  try {
+    const status = await localLLMService.getStatus();
+    res.json(status);
+  } catch (err) {
+    res.json({ available: false, provider: 'ollama', model: process.env.OLLAMA_MODEL || 'qwen3:1.7b' });
   }
 });
 

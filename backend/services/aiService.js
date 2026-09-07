@@ -1,5 +1,5 @@
 const natural = require('natural');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const localLLMService = require('./localLLMService');
 
 // Initialize NLP Tooling
 const classifier = new natural.BayesClassifier();
@@ -87,97 +87,29 @@ const analyzeEmail = async (subject, body, sender, preferences) => {
 // PHASE 2: On-demand AI summary (called when user clicks an email)
 // ============================================
 const generateAISummary = async (subject, body, sender) => {
-  const analysisBody = body && body.length > 2000 ? body.substring(0, 2000) + '...' : body;
-
-  // --- PRIMARY: Google Gemini (FREE — gemini-2.5-flash has 1500/day) ---
-  if (process.env.GEMINI_API_KEY) {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Try multiple models in case one has exhausted its quota
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
-    
-    const prompt = `You are a smart, friendly email assistant. Read this email and explain it to me like a helpful friend would. Use simple, everyday English that anyone can understand.
-
-Your response MUST follow this EXACT format (use these exact headings with emojis):
-
-🎯 WHAT'S THIS ABOUT?
-Write 1-2 friendly sentences explaining what this email is about. Talk like a helpful friend, not a robot. Example: "Hey! Your college just sent you a reminder about an assessment you need to complete today."
-
-📋 KEY POINTS
-• List the most important facts from the email as bullet points
-• Keep each point short and simple
-• Only include what actually matters
-
-✅ WHAT YOU NEED TO DO
-• List specific actions the reader needs to take
-• If there's nothing to do, write "• No action needed — this is just informational"
-
-⏰ DEADLINES
-• List any dates, times, or deadlines mentioned
-• If none, write "• No specific deadlines mentioned"
-
-⚡ BOTTOM LINE
-Write one final sentence — is this urgent? Can they ignore it? Should they act now?
-
----
-Email Subject: ${subject}
-From: ${sender}
-
-Email Content:
-${analysisBody}`;
-
-    for (const modelName of modelsToTry) {
-      try {
-        console.log(`Trying Gemini model: ${modelName}...`);
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        console.log(`Gemini success with model: ${modelName}`);
-        return response.text();
-      } catch (err) {
-        console.error(`Gemini Error (${modelName}):`, err.message?.substring(0, 200));
-        // If rate limited, try next model
-        if (err.message?.includes('429') || err.message?.includes('quota')) {
-          console.log(`Model ${modelName} quota exhausted, trying next...`);
-          continue;
-        }
-        // For other errors, also try next model
-        continue;
-      }
-    }
-    console.error('All Gemini models exhausted or failed.');
-  }
-
-  // --- SECONDARY: OpenAI ---
-  if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here') {
-    try {
-      const { OpenAI } = require('openai');
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: `Summarize this email in a friendly, simple way. Subject: ${subject}\nFrom: ${sender}\n\n${analysisBody}` }],
-        max_tokens: 250
-      });
-      return response.choices[0].message.content;
-    } catch (err) {
-      console.error('OpenAI Error:', err.message);
-    }
-  }
-
-  // --- FALLBACK: Local template ---
-  return localTemplateSummary(subject, sender, analysisBody);
-};
-
-// Local template-based summary
-const localTemplateSummary = (subject, sender, body) => {
-  const senderName = sender.split('<')[0].trim() || sender;
-  const sentences = body.replace(/(\r\n|\n|\r)/gm, " ")
-                        .split(/(?<=[.!?])\s+/)
-                        .map(s => s.trim())
-                        .filter(s => s.length > 15 && s.match(/^[A-Z]/));
-
-  const topSentences = sentences.slice(0, 3).map(s => `• ${s}`).join('\n');
+  const result = await localLLMService.analyzeEmail({ subject, sender, body });
   
-  return `🎯 WHAT'S THIS ABOUT?\nYou received an email from ${senderName} regarding "${subject}".\n\n📋 KEY POINTS\n${topSentences || '• No clear content could be extracted from this email.'}\n\n✅ WHAT YOU NEED TO DO\n• Review the email content above for any required actions.\n\n⏰ DEADLINES\n• Check the original content below for specific dates.\n\n⚡ BOTTOM LINE\nPlease read the original content for full details.`;
+  if (result.success) {
+    // Return structured JSON directly, along with metadata
+    return {
+      success: true,
+      data: result.data,
+      metadata: {
+        aiProvider: result.provider,
+        aiModel: result.model
+      }
+    };
+  }
+
+  // Handle failure gracefully (e.g. Ollama offline)
+  return {
+    success: false,
+    error: result.error || 'Local AI service unavailable.',
+    metadata: {
+      aiProvider: 'ollama',
+      aiModel: process.env.OLLAMA_MODEL || 'qwen3:1.7b'
+    }
+  };
 };
 
 module.exports = { analyzeEmail, generateAISummary };
