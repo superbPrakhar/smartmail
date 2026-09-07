@@ -20,21 +20,35 @@ if (process.env.MONGODB_URI) {
 
   UserModel = mongoose.model('User', userSchema);
 } else {
-  const dbPath = path.join(__dirname, '../database_users.json');
+  const isVercel = Boolean(process.env.VERCEL);
+  const bundledDbPath = path.join(__dirname, '../database_users.json');
+  const dbPath = isVercel ? path.join('/tmp', 'database_users.json') : bundledDbPath;
+
+  // In-memory fallback cache for serverless lifecycles
+  let memoryUsers = null;
 
   function readUsersFromFile() {
+    if (memoryUsers) return memoryUsers;
     try {
       if (fs.existsSync(dbPath)) {
         const data = fs.readFileSync(dbPath, 'utf8');
-        return JSON.parse(data || '[]');
+        memoryUsers = JSON.parse(data || '[]');
+        return memoryUsers;
+      } else if (isVercel && fs.existsSync(bundledDbPath)) {
+        const data = fs.readFileSync(bundledDbPath, 'utf8');
+        memoryUsers = JSON.parse(data || '[]');
+        try { fs.writeFileSync(dbPath, data, 'utf8'); } catch(e) {}
+        return memoryUsers;
       }
     } catch (err) {
       console.error('Error reading users database:', err);
     }
-    return [];
+    memoryUsers = [];
+    return memoryUsers;
   }
 
   function writeUsersToFile(usersList) {
+    memoryUsers = usersList;
     try {
       fs.writeFileSync(dbPath, JSON.stringify(usersList, null, 2), 'utf8');
     } catch (err) {

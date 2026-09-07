@@ -82,16 +82,20 @@ const getOAuth2Client = () => {
   );
 };
 
-// 1. Connect Gmail trigger (must be logged in)
+// 1. Connect Gmail / Google Sign-in trigger
 router.get('/google/connect', async (req, res) => {
-  if (!req.session.userId) return res.redirect(`/?error=not_authenticated_for_gmail`);
-  
   const oauth2Client = getOAuth2Client();
+  const stateVal = req.session && req.session.userId ? req.session.userId.toString() : 'direct_google_auth';
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline', // getting refresh token
-    scope: ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/userinfo.email'],
-    state: req.session.userId.toString(), // pass user id safely
-    prompt: 'consent' // force consent
+    scope: [
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile'
+    ],
+    state: stateVal,
+    prompt: 'consent' // force consent for refresh token
   });
   res.redirect(url);
 });
@@ -99,8 +103,9 @@ router.get('/google/connect', async (req, res) => {
 // 2. Callback from Google
 router.get('/callback', async (req, res) => {
   try {
-    const { code, state } = req.query;
-    if (!state) throw new Error('Missing state parameter (user id)');
+    const { code, state, error: oauthError } = req.query;
+    if (oauthError) throw new Error(oauthError);
+    if (!code) throw new Error('Missing OAuth authorization code');
 
     const oauth2Client = getOAuth2Client();
     const { tokens } = await oauth2Client.getToken(code);
@@ -108,25 +113,43 @@ router.get('/callback', async (req, res) => {
 
     const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
     const userInfo = await oauth2.userinfo.get();
-    
-    const user = await User.findById(state);
-    if (!user) throw new Error('User not found during oauth callback');
+    const userEmail = (userInfo.data.email || '').trim().toLowerCase();
+
+    let user = null;
+    if (state && state !== 'direct_google_auth') {
+      user = await User.findById(state);
+    }
+    if (!user && userEmail) {
+      user = await User.findOne({ email: userEmail });
+    }
+    if (!user) {
+      // Auto-create user account from Google profile
+      user = new User({
+        email: userEmail || `user_${userInfo.data.id}@gmail.com`,
+        passwordHash: 'google_managed_auth',
+        googleId: userInfo.data.id,
+        isGmailConnected: true,
+        preferences: { importantKeywords: [], spamKeywords: [] }
+      });
+    }
 
     user.googleId = userInfo.data.id;
-    user.accessToken = tokens.access_token;
+    if (tokens.access_token) {
+      user.accessToken = tokens.access_token;
+    }
     if (tokens.refresh_token) {
       user.refreshToken = tokens.refresh_token;
     }
     user.isGmailConnected = true;
     await user.save();
 
-    // Re-establish session just in case
+    // Re-establish session
     req.session.userId = user._id;
 
-    res.redirect(`/dashboard`);
+    res.redirect('/dashboard');
   } catch (error) {
-    console.error('Auth callback error', error);
-    res.redirect(`/?error=gmail_connect_failed`);
+    console.error('Auth callback error:', error);
+    res.redirect(`/?error=${encodeURIComponent(error.message || 'gmail_connect_failed')}`);
   }
 });
 

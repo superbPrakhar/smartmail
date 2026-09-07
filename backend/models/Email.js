@@ -32,21 +32,34 @@ if (process.env.MONGODB_URI) {
 
   EmailModel = mongoose.model('Email', emailSchema);
 } else {
-  const dbPath = path.join(__dirname, '../database_emails.json');
+  const isVercel = Boolean(process.env.VERCEL);
+  const bundledDbPath = path.join(__dirname, '../database_emails.json');
+  const dbPath = isVercel ? path.join('/tmp', 'database_emails.json') : bundledDbPath;
+
+  let memoryEmails = null;
 
   function readEmailsFromFile() {
+    if (memoryEmails) return memoryEmails;
     try {
       if (fs.existsSync(dbPath)) {
         const data = fs.readFileSync(dbPath, 'utf8');
-        return JSON.parse(data || '[]');
+        memoryEmails = JSON.parse(data || '[]');
+        return memoryEmails;
+      } else if (isVercel && fs.existsSync(bundledDbPath)) {
+        const data = fs.readFileSync(bundledDbPath, 'utf8');
+        memoryEmails = JSON.parse(data || '[]');
+        try { fs.writeFileSync(dbPath, data, 'utf8'); } catch(e) {}
+        return memoryEmails;
       }
     } catch (err) {
       console.error('Error reading emails database:', err);
     }
-    return [];
+    memoryEmails = [];
+    return memoryEmails;
   }
 
   function writeEmailsToFile(emailsList) {
+    memoryEmails = emailsList;
     try {
       fs.writeFileSync(dbPath, JSON.stringify(emailsList, null, 2), 'utf8');
     } catch (err) {
