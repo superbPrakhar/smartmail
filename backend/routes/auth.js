@@ -85,17 +85,40 @@ const { analyzeEmail } = require('../services/aiService');
 
 // Update Preferences
 router.post('/preferences', async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const userId = (req.session && req.session.userId) || (req.session && req.session.user && req.session.user._id);
+  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
   const { importantKeywords, spamKeywords } = req.body;
   try {
-    const user = await User.findById(req.session.userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    
-    user.preferences = { 
-      importantKeywords: Array.isArray(importantKeywords) ? importantKeywords : [], 
-      spamKeywords: Array.isArray(spamKeywords) ? spamKeywords : [] 
+    const rawImportant = Array.isArray(importantKeywords) ? importantKeywords : (typeof importantKeywords === 'string' ? importantKeywords.split(/[,;\n]+/) : []);
+    const rawSpam = Array.isArray(spamKeywords) ? spamKeywords : (typeof spamKeywords === 'string' ? spamKeywords.split(/[,;\n]+/) : []);
+
+    const newPreferences = { 
+      importantKeywords: rawImportant.map(s => String(s).trim()).filter(Boolean), 
+      spamKeywords: rawSpam.map(s => String(s).trim()).filter(Boolean)
     };
+
+    let user = req.session && req.session.user ? new User(req.session.user) : null;
+    if (!user) {
+      user = await User.findById(userId);
+    }
+    if (!user) {
+      user = new User({
+        _id: userId,
+        email: (req.session && req.session.user && req.session.user.email) || 'user@smartmail.app',
+        isGmailConnected: true
+      });
+    }
+
+    user.preferences = newPreferences;
     await user.save();
+
+    // Store directly in session cookie so it is available across all serverless containers
+    if (req.session) {
+      if (!req.session.user) req.session.user = {};
+      req.session.userId = user._id;
+      req.session.user._id = user._id;
+      req.session.user.preferences = newPreferences;
+    }
 
     // Dynamically re-score all existing emails in the database for this user
     try {
@@ -106,7 +129,7 @@ router.post('/preferences', async (req, res) => {
             em.subject || '', 
             em.body || em.snippet || '', 
             em.sender || '', 
-            user.preferences
+            newPreferences
           );
           em.importanceScore = analysis.importanceScore;
           em.category = analysis.category;
@@ -120,10 +143,10 @@ router.post('/preferences', async (req, res) => {
       console.error('Error re-scoring emails upon preference update:', reScoreErr);
     }
 
-    res.json({ message: 'Preferences updated', preferences: user.preferences });
+    res.json({ message: 'Preferences updated', preferences: newPreferences });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Preferences update error:', err);
+    res.status(500).json({ error: 'Server error updating preferences' });
   }
 });
 

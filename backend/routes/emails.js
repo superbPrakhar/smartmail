@@ -77,6 +77,23 @@ router.get('/fetch', async (req, res) => {
       user = await User.findById(req.session.userId);
     }
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Dual-persistence guarantee: merge query preferences with user.preferences
+    let queryImportant = null;
+    if (req.query.importantKeywords) {
+      queryImportant = String(req.query.importantKeywords).split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+    }
+    let querySpam = null;
+    if (req.query.spamKeywords) {
+      querySpam = String(req.query.spamKeywords).split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+    }
+
+    const effectivePreferences = {
+      importantKeywords: (queryImportant && queryImportant.length > 0) ? queryImportant : ((user.preferences && user.preferences.importantKeywords) || []),
+      spamKeywords: (querySpam && querySpam.length > 0) ? querySpam : ((user.preferences && user.preferences.spamKeywords) || [])
+    };
+    user.preferences = effectivePreferences;
+
     if (user.email === 'mockuser@smartmail.local' || !user.accessToken || !process.env.GOOGLE_CLIENT_ID) {
       return generateMockEmails(res, user._id, user.preferences);
     }

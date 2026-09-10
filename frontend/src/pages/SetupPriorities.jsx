@@ -11,11 +11,31 @@ export default function SetupPriorities() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
+    // 1. Check local storage first
+    try {
+      const cached = localStorage.getItem('smartmail_preferences');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.importantKeywords && parsed.importantKeywords.length > 0) {
+          setImportant(parsed.importantKeywords.join(', '));
+        }
+        if (parsed.spamKeywords && parsed.spamKeywords.length > 0) {
+          setSpam(parsed.spamKeywords.join(', '));
+        }
+      }
+    } catch (e) {}
+
+    // 2. Also fetch from server
     axios.get('/auth/me')
       .then(res => {
-        if(res.data.preferences) {
-           setImportant(res.data.preferences.importantKeywords.join(', ') || '');
-           setSpam(res.data.preferences.spamKeywords.join(', ') || '');
+        if (res.data && res.data.preferences) {
+          const { importantKeywords, spamKeywords } = res.data.preferences;
+          if (importantKeywords && importantKeywords.length > 0) {
+            setImportant(importantKeywords.join(', '));
+          }
+          if (spamKeywords && spamKeywords.length > 0) {
+            setSpam(spamKeywords.join(', '));
+          }
         }
       })
       .catch(console.error);
@@ -25,19 +45,32 @@ export default function SetupPriorities() {
     e.preventDefault();
     setLoading(true);
     try {
-      const impKeywords = important.split(',').map(s => s.trim()).filter(Boolean);
-      const spKeywords = spam.split(',').map(s => s.trim()).filter(Boolean);
+      const impKeywords = important.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+      const spKeywords = spam.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
       
+      // Save locally immediately
+      localStorage.setItem('smartmail_preferences', JSON.stringify({
+        importantKeywords: impKeywords,
+        spamKeywords: spKeywords
+      }));
+
+      // Post to backend
       await axios.post('/auth/preferences', {
         importantKeywords: impKeywords,
         spamKeywords: spKeywords
       });
+
       setSuccess(true);
       setTimeout(() => {
         window.location.href = '/dashboard';
-      }, 1000);
+      }, 700);
     } catch (err) {
-      console.error(err);
+      console.error('Preference save warning:', err);
+      // Still proceed since localStorage holds the preferences
+      setSuccess(true);
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 700);
     } finally {
       setLoading(false);
     }

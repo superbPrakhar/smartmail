@@ -25,8 +25,9 @@ const analyzeEmail = async (subject, body, sender, preferences) => {
   const safeBody = (body || '').trim();
   const analysisBody = safeBody.length > 2000 ? safeBody.substring(0, 2000) + '...' : safeBody;
 
-  // Search across sender, subject, and body for comprehensive matching
-  const fullContent = `${safeSender} ${safeSubject} ${analysisBody}`.toLowerCase();
+  // Search across sender, subject, and FULL body for comprehensive matching
+  const fullContent = `${safeSender} ${safeSubject} ${safeBody}`.toLowerCase();
+  const normalizedFull = fullContent.replace(/[^a-z0-9\s]/g, ' ');
   
   // 1. Scoring
   let score = 2;
@@ -40,16 +41,25 @@ const analyzeEmail = async (subject, body, sender, preferences) => {
       if (!rawKw) continue;
       const kw = rawKw.trim().toLowerCase();
       if (!kw) continue;
+      const normalizedKw = kw.replace(/[^a-z0-9\s]/g, ' ').trim();
 
-      // Direct phrase match in sender, subject, or body
-      if (fullContent.includes(kw)) {
+      // 1. Exact phrase match
+      if (fullContent.includes(kw) || normalizedFull.includes(normalizedKw)) {
         matchedCriticalKeyword = true;
         break;
       }
 
-      // Multi-word phrase matching (e.g. "Kanohar Electricals" matches if all individual words exist)
-      const parts = kw.split(/\s+/).filter(p => p.length >= 3);
-      if (parts.length > 1 && parts.every(p => fullContent.includes(p))) {
+      // 2. Distinctive words matching (e.g. "kanohar" or "electricals")
+      const parts = normalizedKw.split(/\s+/).filter(p => p.length >= 3);
+      if (parts.length > 1) {
+        // If all significant words match, or any very distinctive word (length >= 5) matches
+        const allMatch = parts.every(p => normalizedFull.includes(p));
+        const distinctiveMatch = parts.some(p => p.length >= 5 && normalizedFull.includes(p));
+        if (allMatch || distinctiveMatch) {
+          matchedCriticalKeyword = true;
+          break;
+        }
+      } else if (parts.length === 1 && parts[0].length >= 3 && normalizedFull.includes(parts[0])) {
         matchedCriticalKeyword = true;
         break;
       }
@@ -57,7 +67,7 @@ const analyzeEmail = async (subject, body, sender, preferences) => {
   }
 
   if (matchedCriticalKeyword) {
-    // When an email matches an explicit user Critical Keyword, guarantee 5-star / Critical Priority
+    // Guaranteed 5-Star Critical Urgency
     score = 5;
   } else if (preferences && Array.isArray(preferences.spamKeywords)) {
     for (const rawKw of preferences.spamKeywords) {

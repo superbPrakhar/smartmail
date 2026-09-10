@@ -26,20 +26,66 @@ export default function Dashboard() {
   const fetchEmails = async () => {
     try {
       setLoading(true);
+      setError('');
       const meRes = await axios.get('/auth/me');
       if (!meRes.data.isGmailConnected) {
          window.location.href = '/connect-gmail';
          return;
       }
       
-      const res = await axios.get('/emails/fetch');
+      // 1. Retrieve user priorities from localStorage (or meRes)
+      let storedPrefs = null;
+      try {
+        const raw = localStorage.getItem('smartmail_preferences');
+        if (raw) storedPrefs = JSON.parse(raw);
+      } catch (e) {}
+      if (!storedPrefs && meRes.data.preferences) {
+        storedPrefs = meRes.data.preferences;
+      }
+      
+      // 2. Fetch emails with query parameters for dual-persistence guarantee
+      const queryParams = {};
+      if (storedPrefs && storedPrefs.importantKeywords && storedPrefs.importantKeywords.length > 0) {
+        queryParams.importantKeywords = storedPrefs.importantKeywords.join(',');
+      }
+      if (storedPrefs && storedPrefs.spamKeywords && storedPrefs.spamKeywords.length > 0) {
+        queryParams.spamKeywords = storedPrefs.spamKeywords.join(',');
+      }
+
+      const res = await axios.get('/emails/fetch', { params: queryParams });
       if (res.data.error) throw new Error(res.data.error);
       if (res.data.message === 'No emails found') {
         setEmails([]);
       } else {
-        setEmails(res.data);
+        let fetchedEmails = Array.isArray(res.data) ? [...res.data] : [];
+
+        // 3. Client-side priority assurance: guarantee any email matching Critical Topics is elevated to 5 stars!
+        if (storedPrefs && Array.isArray(storedPrefs.importantKeywords)) {
+          const rawKeywords = storedPrefs.importantKeywords.map(k => String(k).trim().toLowerCase()).filter(Boolean);
+          if (rawKeywords.length > 0) {
+            fetchedEmails.forEach(email => {
+              const fullText = `${email.sender || ''} ${email.subject || ''} ${email.body || email.snippet || ''}`.toLowerCase();
+              const normalized = fullText.replace(/[^a-z0-9\s]/g, ' ');
+
+              const isMatch = rawKeywords.some(kw => {
+                const normKw = kw.replace(/[^a-z0-9\s]/g, ' ').trim();
+                if (fullText.includes(kw) || normalized.includes(normKw)) return true;
+                const parts = normKw.split(/\s+/).filter(p => p.length >= 3);
+                return (parts.length > 1 && (parts.every(p => normalized.includes(p)) || parts.some(p => p.length >= 5 && normalized.includes(p)))) || (parts.length === 1 && parts[0].length >= 3 && normalized.includes(parts[0]));
+              });
+
+              if (isMatch) {
+                email.importanceScore = 5;
+                email.tone = 'Urgent';
+              }
+            });
+            fetchedEmails.sort((a, b) => b.importanceScore - a.importanceScore || new Date(b.timestamp) - new Date(a.timestamp));
+          }
+        }
+
+        setEmails(fetchedEmails);
         if ('Notification' in window && Notification.permission === 'granted') {
-          const urgentEmail = res.data.find(e => e.wittyNotification);
+          const urgentEmail = fetchedEmails.find(e => e.wittyNotification);
           if (urgentEmail) {
              try {
                new Notification('SmartMail AI 💌', {
