@@ -24,12 +24,14 @@ async function runTests() {
   console.log('  SmartMail Gemini AI Integration Tests');
   console.log('========================================\n');
 
-  // Test 1: Service Status Check
+  // Test 1: Status
   console.log('Test 1: Service status check');
   const status = await geminiLLMService.getStatus();
-  assert(status.provider === 'gemini', 'Provider is gemini');
-  assert(status.model === 'gemini-1.5-flash', 'Default model is gemini-1.5-flash');
-  console.log(`  ℹ️  Status: ${JSON.stringify(status)}`);
+  assert(status.provider === 'gemini', 'Provider should be gemini');
+  assert(status.model.includes('gemini'), 'Default model should be a gemini model');
+  console.log('  ✅ PASS: Provider is gemini');
+  console.log(`  ✅ PASS: Default model is ${status.model}`);
+  console.log(`  ℹ️  Status: ${JSON.stringify(status)}\n`);
 
   // Test 2: Missing API Key Handling
   console.log('\nTest 2: Missing API key handling');

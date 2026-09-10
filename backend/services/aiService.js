@@ -20,36 +20,68 @@ classifier.train();
 // PHASE 1: Quick analysis for dashboard (NO AI call — instant)
 // ============================================
 const analyzeEmail = async (subject, body, sender, preferences) => {
-  const analysisBody = body && body.length > 2000 ? body.substring(0, 2000) + '...' : body;
-  const content = `${subject} ${analysisBody}`.toLowerCase();
+  const safeSubject = (subject || '').trim();
+  const safeSender = (sender || '').trim();
+  const safeBody = (body || '').trim();
+  const analysisBody = safeBody.length > 2000 ? safeBody.substring(0, 2000) + '...' : safeBody;
+
+  // Search across sender, subject, and body for comprehensive matching
+  const fullContent = `${safeSender} ${safeSubject} ${analysisBody}`.toLowerCase();
   
   // 1. Scoring
   let score = 2;
-  if (content.match(/deadline|urgent|asap|important/)) score += 3;
-  if (sender.match(/\.edu|professor|university|official/)) score += 4;
-  if (content.match(/offer|discount|spam|unsubscribe|sale|promotions/)) score -= 2;
+  if (fullContent.match(/deadline|urgent|asap|important|critical|action required/)) score += 3;
+  if (safeSender.match(/\.edu|professor|university|official/i)) score += 4;
+  if (fullContent.match(/offer|discount|spam|unsubscribe|sale|promotions|clearance/)) score -= 2;
 
-  if (preferences && preferences.importantKeywords) {
-    for (const kw of preferences.importantKeywords) {
-      if (kw && content.includes(kw.toLowerCase())) score += 3;
+  let matchedCriticalKeyword = false;
+  if (preferences && Array.isArray(preferences.importantKeywords)) {
+    for (const rawKw of preferences.importantKeywords) {
+      if (!rawKw) continue;
+      const kw = rawKw.trim().toLowerCase();
+      if (!kw) continue;
+
+      // Direct phrase match in sender, subject, or body
+      if (fullContent.includes(kw)) {
+        matchedCriticalKeyword = true;
+        break;
+      }
+
+      // Multi-word phrase matching (e.g. "Kanohar Electricals" matches if all individual words exist)
+      const parts = kw.split(/\s+/).filter(p => p.length >= 3);
+      if (parts.length > 1 && parts.every(p => fullContent.includes(p))) {
+        matchedCriticalKeyword = true;
+        break;
+      }
     }
   }
-  if (preferences && preferences.spamKeywords) {
-    for (const kw of preferences.spamKeywords) {
-      if (kw && content.includes(kw.toLowerCase())) score -= 3;
+
+  if (matchedCriticalKeyword) {
+    // When an email matches an explicit user Critical Keyword, guarantee 5-star / Critical Priority
+    score = 5;
+  } else if (preferences && Array.isArray(preferences.spamKeywords)) {
+    for (const rawKw of preferences.spamKeywords) {
+      if (!rawKw) continue;
+      const kw = rawKw.trim().toLowerCase();
+      if (!kw) continue;
+      if (fullContent.includes(kw)) {
+        score = 1;
+        break;
+      }
     }
   }
+
   score = Math.max(1, Math.min(5, score));
   
   // 2. ML Categorization
-  const categoryPrediction = classifier.classify(content);
+  const categoryPrediction = classifier.classify(fullContent);
   
   // 3. NO AI summary during fetch — just a placeholder
   const summary = '';
 
   // 4. Deadline Detection
   let wittyNotification = null;
-  if (content.match(/deadline|due tomorrow|closes on|expires|within 24 hours/)) {
+  if (fullContent.match(/deadline|due tomorrow|closes on|expires|within 24 hours/)) {
     const zingers = [
       "Hey bestie ✨ that form deadline is creeping up! Wrap it up like a burrito! 🌯💻",
       "Wakey wakey, eggs & bakey! 🍳 Your application closes soon. Don't ghost it! 👻",
@@ -66,9 +98,13 @@ const analyzeEmail = async (subject, body, sender, preferences) => {
   const timeRoiScore = parseFloat(((score / readTimeGst) * 100).toFixed(1));
 
   let tone = 'Professional';
-  if (content.match(/urgent|asap|now|immediate|penalty|fail/)) tone = 'Urgent';
-  else if (content.match(/thanks|love|appreciate|excited|happy|cheers/)) tone = 'Friendly';
-  else if (content.match(/complain|unacceptable|poor|bad|disappointed|angry/)) tone = 'Angry';
+  if (matchedCriticalKeyword || fullContent.match(/urgent|asap|now|immediate|penalty|fail/)) tone = 'Urgent';
+  else if (fullContent.match(/thanks|love|appreciate|excited|happy|cheers/)) tone = 'Friendly';
+  else if (fullContent.match(/complain|unacceptable|poor|bad|disappointed|angry/)) tone = 'Angry';
+
+  if (matchedCriticalKeyword && !wittyNotification) {
+    wittyNotification = "⚡ Priority Alert! Email from your designated Critical Topics received.";
+  }
 
   // 6. Smart Replies
   let smartReplies = ["Got it, thanks!", "I will review this soon.", "Let's schedule a call."];

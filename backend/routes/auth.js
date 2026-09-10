@@ -57,14 +57,46 @@ router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out' });
 });
 
+const Email = require('../models/Email');
+const { analyzeEmail } = require('../services/aiService');
+
 // Update Preferences
 router.post('/preferences', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   const { importantKeywords, spamKeywords } = req.body;
   try {
     const user = await User.findById(req.session.userId);
-    user.preferences = { importantKeywords, spamKeywords };
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    user.preferences = { 
+      importantKeywords: Array.isArray(importantKeywords) ? importantKeywords : [], 
+      spamKeywords: Array.isArray(spamKeywords) ? spamKeywords : [] 
+    };
     await user.save();
+
+    // Dynamically re-score all existing emails in the database for this user
+    try {
+      const userEmails = await Email.find({ userId: user._id });
+      if (Array.isArray(userEmails) && userEmails.length > 0) {
+        for (const em of userEmails) {
+          const analysis = await analyzeEmail(
+            em.subject || '', 
+            em.body || em.snippet || '', 
+            em.sender || '', 
+            user.preferences
+          );
+          em.importanceScore = analysis.importanceScore;
+          em.category = analysis.category;
+          em.tone = analysis.tone;
+          em.timeRoiScore = analysis.timeRoiScore;
+          if (analysis.wittyNotification) em.wittyNotification = analysis.wittyNotification;
+          await em.save();
+        }
+      }
+    } catch (reScoreErr) {
+      console.error('Error re-scoring emails upon preference update:', reScoreErr);
+    }
+
     res.json({ message: 'Preferences updated', preferences: user.preferences });
   } catch (err) {
     console.error(err);

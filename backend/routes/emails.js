@@ -76,7 +76,7 @@ router.get('/fetch', async (req, res) => {
     const user = await User.findById(req.session.userId);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     if (user.email === 'mockuser@smartmail.local' || !user.accessToken || !process.env.GOOGLE_CLIENT_ID) {
-      return generateMockEmails(res, user._id);
+      return generateMockEmails(res, user._id, user.preferences);
     }
 
     const oauth2Client = new google.auth.OAuth2(
@@ -101,7 +101,24 @@ router.get('/fetch', async (req, res) => {
       try {
         // Check cache first
         let existingEmail = await Email.findOne({ emailId: msg.id });
-        if (existingEmail) return existingEmail;
+        if (existingEmail) {
+          // Dynamically re-score cached emails with updated user preferences
+          const analysis = await analyzeEmail(
+            existingEmail.subject || '', 
+            existingEmail.body || existingEmail.snippet || '', 
+            existingEmail.sender || '', 
+            user.preferences
+          );
+          if (existingEmail.importanceScore !== analysis.importanceScore || existingEmail.category !== analysis.category) {
+            existingEmail.importanceScore = analysis.importanceScore;
+            existingEmail.category = analysis.category;
+            existingEmail.tone = analysis.tone;
+            existingEmail.timeRoiScore = analysis.timeRoiScore;
+            if (analysis.wittyNotification) existingEmail.wittyNotification = analysis.wittyNotification;
+            await existingEmail.save();
+          }
+          return existingEmail;
+        }
         
         const messageData = await gmail.users.messages.get({
           userId: 'me',
@@ -225,7 +242,7 @@ router.get('/ai/status', async (req, res) => {
   }
 });
 
-async function generateMockEmails(res, userId) {
+async function generateMockEmails(res, userId, preferences) {
   const academicSubjects = [
     "URGENT: Final Project Deadline Extension",
     "Midterm Examination Schedule and Seat Plan",
@@ -297,10 +314,7 @@ async function generateMockEmails(res, userId) {
     "Clearance event: Warehouse liquidation sales",
     "Earn cash back on everyday purchases - sign up!",
     "Don't miss out: Final hours to claim your discount",
-    "Increase your productivity with these 10 tools",
-    "Exclusive invitation: VIP shopping club access",
-    "Your account statement is ready for review",
-    "Get professional resume writing services for cheap"
+    "Increase your productivity with these 10 tools"
   ];
 
   const uncategorizedSubjects = [
@@ -331,15 +345,38 @@ async function generateMockEmails(res, userId) {
   ];
 
   const mockData = [];
-  const zingers = [
-    "Hey bestie ✨ that form deadline is creeping up! Wrap it up like a burrito! 🌯💻",
-    "Wakey wakey, eggs & bakey! 🍳 Your application closes soon. Don't ghost it! 👻",
-    "Alert! 🚨 We found a ticking clock. Time to secure that bag before it burns! 💰🍞",
-    "Ding dong! 🛎️ Your future self just called—they want you to submit this right now! 🚀",
-    "Spicy hot alert! 🌶️ An internship deadline is almost here. Go grab your dream job! 🏃‍♂️👔"
-  ];
 
-  // Generate 80 mock emails
+  // If user has custom critical keywords (e.g. "Kanohar Electricals"), inject dedicated mock emails
+  if (preferences && Array.isArray(preferences.importantKeywords)) {
+    preferences.importantKeywords.forEach((rawKw, kwIdx) => {
+      const kw = (rawKw || '').trim();
+      if (!kw) return;
+      const customSubject = `URGENT: Project Action Item & Specifications for ${kw}`;
+      const customSender = `${kw} Official <contact@${kw.toLowerCase().replace(/[^a-z0-9]/g, '') || 'company'}.com>`;
+      const customBody = `Dear Partner,\n\nThis is a high-priority communication regarding ${kw}. Please review the urgent deliverables and confirm the action items outlined below at your earliest convenience.\n\nBest regards,\n${kw} Management`;
+      
+      mockData.push({
+        _id: `custom_kw_${kwIdx}`,
+        emailId: `custom_kw_${kwIdx}`,
+        subject: customSubject,
+        sender: customSender,
+        snippet: customBody.substring(0, 80) + '...',
+        body: customBody,
+        summary: customBody,
+        category: 'Work',
+        timestamp: new Date(Date.now() - kwIdx * 5 * 60 * 1000),
+        importanceScore: 5,
+        wittyNotification: `⚡ Critical Alert! Priority message regarding ${kw} requires your attention!`,
+        tone: 'Urgent',
+        readTimeGst: 15,
+        timeRoiScore: 33.3,
+        smartReplies: ["I'm on it immediately!", "Reviewed and confirmed.", "Let's discuss this on a call."],
+        userId: userId
+      });
+    });
+  }
+
+  // Generate 80 standard mock emails
   const totalEmailsNeeded = 80;
   for (let i = 0; i < totalEmailsNeeded; i++) {
     const catConfig = categories[i % categories.length];
@@ -348,49 +385,12 @@ async function generateMockEmails(res, userId) {
     const subjectIndex = Math.floor(i / categories.length) % catConfig.subjects.length;
     const subject = catConfig.subjects[subjectIndex];
     const sender = catConfig.senders[Math.floor(Math.random() * catConfig.senders.length)];
-    
     const emailId = `mock_${100 + i}`;
-    
-    // Determine tone
-    let tone = 'Professional';
-    const contentLower = subject.toLowerCase();
-    if (contentLower.includes('urgent') || contentLower.includes('deadline') || contentLower.includes('final') || contentLower.includes('overdue')) {
-      tone = 'Urgent';
-    } else if (catConfig.name === 'Events' || catConfig.name === 'Uncategorized') {
-      tone = 'Friendly';
-    }
-    
-    // Determine importance score
-    let score = 2;
-    if (tone === 'Urgent') score += 2;
-    if (catConfig.name === 'Academic' || catConfig.name === 'Internship') score += 1;
-    if (catConfig.name === 'Spam') score = 1;
-    score = Math.max(1, Math.min(5, score));
-    
-    // Determine read time
-    const readTimeGst = 5 + (i * 3) % 45; // between 5 and 50 seconds
-    const timeRoiScore = parseFloat(((score / readTimeGst) * 100).toFixed(1));
-    
-    // Witty notification
-    let wittyNotification = null;
-    if (tone === 'Urgent' && i % 4 === 0) {
-      wittyNotification = zingers[i % zingers.length];
-    }
-    
-    // Smart replies
-    let smartReplies = ["Got it, thanks!", "I will review this soon.", "Let's schedule a call."];
-    if (tone === 'Urgent') {
-      smartReplies = ["I'm on it!", "Can we extend the deadline?", "I will send this right away."];
-    } else if (tone === 'Friendly') {
-      smartReplies = ["Thanks a lot! 😊", "Great catch!", "Sounds like a plan!"];
-    } else if (catConfig.name === 'Events') {
-      smartReplies = ["I RSVP yes!", "I can't make it.", "Is there a virtual link?"];
-    } else if (catConfig.name === 'Spam') {
-      smartReplies = ["Unsubscribe", "Not interested", "Mark as spam"];
-    }
-    
     const body = `This is the body content of the email regarding: "${subject}". Here is some additional text to make it feel like a real email. Please review the details carefully and take necessary action. If you have any questions, feel free to reply.`;
     
+    // Run through actual priority scoring engine
+    const analysis = await analyzeEmail(subject, body, sender, preferences);
+
     mockData.push({
       _id: emailId,
       emailId: emailId,
@@ -399,18 +399,19 @@ async function generateMockEmails(res, userId) {
       snippet: `${body.substring(0, 60)}...`,
       body: body,
       summary: body,
-      category: catConfig.name,
-      timestamp: new Date(Date.now() - i * 30 * 60 * 1000), // Spaced by 30 mins
-      importanceScore: score,
-      wittyNotification: wittyNotification,
-      tone: tone,
-      readTimeGst: readTimeGst,
-      timeRoiScore: timeRoiScore,
-      smartReplies: smartReplies,
+      category: analysis.category || catConfig.name,
+      timestamp: new Date(Date.now() - (i + 1) * 30 * 60 * 1000),
+      importanceScore: analysis.importanceScore,
+      wittyNotification: analysis.wittyNotification,
+      tone: analysis.tone,
+      readTimeGst: analysis.readTimeGst,
+      timeRoiScore: analysis.timeRoiScore,
+      smartReplies: analysis.smartReplies,
       userId: userId
     });
   }
   
+  mockData.sort((a, b) => b.importanceScore - a.importanceScore || b.timestamp - a.timestamp);
   res.json(mockData);
 }
 

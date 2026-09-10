@@ -90,9 +90,11 @@ if (process.env.MONGODB_URI) {
     static async find(query) {
       const emailsDB = readEmailsFromFile();
       if (query && query.userId) {
-        return emailsDB.filter(e => e.userId === query.userId || e.userId === query.userId.toString());
+        return emailsDB
+          .filter(e => e.userId === query.userId || e.userId === query.userId.toString())
+          .map(e => new EmailClass(e));
       }
-      return [...emailsDB];
+      return emailsDB.map(e => new EmailClass(e));
     }
 
     static async findOne(query) {
