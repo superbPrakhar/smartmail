@@ -55,17 +55,17 @@ export default function Dashboard() {
     } catch (err) {
       console.error(err);
       if (err.response && err.response.data && err.response.data.error) {
-        if (err.response.data.error.includes('invalid_grant')) {
-          // Token expired, force re-auth
-          window.location.href = '/auth/google/connect';
-          return;
+        const errorMsg = err.response.data.error;
+        if (errorMsg.includes('invalid_grant')) {
+          setError('Your Google authorization expired or was revoked. Please reconnect your Google Account.');
+        } else {
+          setError(`Error: ${errorMsg}`);
         }
-        setError(`Error: ${err.response.data.error}`);
       } else {
         setError(err.message || 'Failed to fetch emails. Are you connected to internet?');
       }
       if (err.response && err.response.status === 401) {
-         window.location.href = '/';
+        setError('Your session has ended. Please sign in again.');
       }
     } finally {
       setLoading(false);
@@ -214,9 +214,25 @@ export default function Dashboard() {
               <p className="font-bold text-slate-500">AI is fetching and analyzing your emails...</p>
             </div>
           ) : error ? (
-            <div className="bg-red-50 text-red-600 p-6 rounded-2xl flex items-center border border-red-100 shadow-sm">
-              <AlertCircle className="w-6 h-6 mr-3" />
-              <span className="font-semibold">{error}</span>
+            <div className="bg-red-50 text-red-600 p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between border border-red-100 shadow-sm gap-4">
+              <div className="flex items-center">
+                <AlertCircle className="w-6 h-6 mr-3 flex-shrink-0" />
+                <span className="font-semibold">{error}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={fetchEmails}
+                  className="px-4 py-2 bg-white text-slate-700 font-bold rounded-xl border border-slate-200 text-sm hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  Try Again
+                </button>
+                <a 
+                  href="/auth/google/connect"
+                  className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl text-sm hover:bg-red-700 transition-colors shadow-sm"
+                >
+                  Reconnect Google
+                </a>
+              </div>
             </div>
           ) : filteredEmails.length === 0 ? (
             <div className="text-center py-20 glass rounded-3xl mt-4 border-dashed border-2 border-slate-300">

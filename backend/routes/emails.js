@@ -72,8 +72,10 @@ function getHeader(headers, name) {
 // ============================================
 router.get('/fetch', async (req, res) => {
   try {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    const user = await User.findById(req.session.userId);
+    let user = req.session && req.session.user ? new User(req.session.user) : null;
+    if (!user && req.session && req.session.userId) {
+      user = await User.findById(req.session.userId);
+    }
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     if (user.email === 'mockuser@smartmail.local' || !user.accessToken || !process.env.GOOGLE_CLIENT_ID) {
       return generateMockEmails(res, user._id, user.preferences);
@@ -81,9 +83,19 @@ router.get('/fetch', async (req, res) => {
 
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.CALLBACK_URL
     );
     oauth2Client.setCredentials({ access_token: user.accessToken, refresh_token: user.refreshToken });
+
+    oauth2Client.on('tokens', (newTokens) => {
+      if (newTokens.access_token && req.session && req.session.user) {
+        req.session.user.accessToken = newTokens.access_token;
+      }
+      if (newTokens.refresh_token && req.session && req.session.user) {
+        req.session.user.refreshToken = newTokens.refresh_token;
+      }
+    });
     
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     
@@ -420,8 +432,10 @@ async function generateMockEmails(res, userId, preferences) {
 // ============================================
 router.post('/send-reply', async (req, res) => {
   try {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
-    const user = await User.findById(req.session.userId);
+    let user = req.session && req.session.user ? new User(req.session.user) : null;
+    if (!user && req.session && req.session.userId) {
+      user = await User.findById(req.session.userId);
+    }
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     const { emailId, to, subject, replyText, threadId } = req.body;

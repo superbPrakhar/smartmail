@@ -17,6 +17,12 @@ router.post('/register', async (req, res) => {
     await user.save();
     
     req.session.userId = user._id;
+    req.session.user = {
+      _id: user._id,
+      email: user.email,
+      isGmailConnected: Boolean(user.isGmailConnected),
+      preferences: user.preferences || { importantKeywords: [], spamKeywords: [] }
+    };
     res.json({ message: 'Registration successful', user: { id: user._id, email: user.email, isGmailConnected: user.isGmailConnected } });
   } catch (err) {
     console.error(err);
@@ -36,6 +42,15 @@ router.post('/login', async (req, res) => {
     if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
     req.session.userId = user._id;
+    req.session.user = {
+      _id: user._id,
+      email: user.email,
+      googleId: user.googleId,
+      accessToken: user.accessToken,
+      refreshToken: user.refreshToken,
+      isGmailConnected: Boolean(user.isGmailConnected),
+      preferences: user.preferences || { importantKeywords: [], spamKeywords: [] }
+    };
     res.json({ message: 'Login successful', user: { id: user._id, email: user.email, isGmailConnected: user.isGmailConnected, preferences: user.preferences } });
   } catch (err) {
     console.error(err);
@@ -45,11 +60,19 @@ router.post('/login', async (req, res) => {
 
 // Current session
 router.get('/me', async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
-  const user = await User.findById(req.session.userId);
-  if (!user) return res.status(401).json({ error: 'User not found' });
+  // Check session cookie first (reliable across all serverless containers)
+  let user = req.session && req.session.user ? req.session.user : null;
+  if (!user && req.session && req.session.userId) {
+    user = await User.findById(req.session.userId);
+  }
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
   
-  res.json({ id: user._id, email: user.email, isGmailConnected: user.isGmailConnected, preferences: user.preferences });
+  res.json({
+    id: user._id,
+    email: user.email,
+    isGmailConnected: Boolean(user.isGmailConnected),
+    preferences: user.preferences || { importantKeywords: [], spamKeywords: [] }
+  });
 });
 
 router.post('/logout', (req, res) => {
@@ -175,8 +198,17 @@ router.get('/callback', async (req, res) => {
     user.isGmailConnected = true;
     await user.save();
 
-    // Re-establish session
+    // Re-establish session with complete user payload
     req.session.userId = user._id;
+    req.session.user = {
+      _id: user._id,
+      email: user.email,
+      googleId: user.googleId,
+      accessToken: user.accessToken,
+      refreshToken: user.refreshToken,
+      isGmailConnected: true,
+      preferences: user.preferences || { importantKeywords: [], spamKeywords: [] }
+    };
 
     res.redirect('/dashboard');
   } catch (error) {
@@ -202,17 +234,33 @@ router.get('/mockLogin', async (req, res) => {
     await user.save();
   }
   req.session.userId = user._id;
+  req.session.user = {
+    _id: user._id,
+    email: user.email,
+    googleId: user.googleId,
+    accessToken: user.accessToken,
+    refreshToken: user.refreshToken,
+    isGmailConnected: true,
+    preferences: user.preferences
+  };
   res.redirect(`/dashboard`);
 });
 
 // Mock Gmail connection skip
 router.post('/google/mock-connect', async (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const userId = req.session && req.session.userId ? req.session.userId : (req.session && req.session.user ? req.session.user._id : null);
+  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
   try {
-    const user = await User.findById(req.session.userId);
+    let user = await User.findById(userId);
+    if (!user && req.session.user) {
+      user = new User(req.session.user);
+    }
     if (!user) return res.status(404).json({ error: 'User not found' });
     user.isGmailConnected = true;
     await user.save();
+    if (req.session.user) {
+      req.session.user.isGmailConnected = true;
+    }
     res.json({ success: true, message: 'Mock Gmail connected' });
   } catch (err) {
     console.error(err);
